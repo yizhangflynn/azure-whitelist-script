@@ -1,0 +1,17 @@
+{
+    "name": "azure-whitelist-helper",
+    "version": "1.0.0",
+    "description": "",
+    "scripts": {
+        "generate": "node curl-generator",
+        "remove": "node ip-remover"
+    },
+    "keywords": [],
+    "author": "Yi Zhang",
+    "license": "ISC",
+    "dependencies": {
+        "config": "^3.1.0",
+        "request": "^2.88.0",
+        "xml2js": "^0.4.19"
+    }
+}
