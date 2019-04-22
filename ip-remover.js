@@ -3,6 +3,7 @@ const config = require('config');
 
 const user = process.env.USER || config.get('publicKey');
 const apiKey = process.env.API_KEY || config.get('privateKey');
+const region = process.env.REGION || 'usnorth';
 const apiUrl = config.get('baseUrl');
 const tag = config.get('tag');
 
@@ -28,7 +29,7 @@ async function removeIps(tag) {
     try {
 
         let counter = 0;
-        const ips = await getIpsByTag(tag);
+        const ips = await getIpsByTag(`${tag} for ${region}`);
         console.log(`${ips.length} matching record found.`);
 
         if (ips.length) {

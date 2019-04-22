@@ -1,59 +1,58 @@
-const fs = require('fs');
 const request = require('request');
 const parser = require('xml2js').parseString;
 const config = require('config');
 
 const user = process.env.USER || config.get('publicKey');
 const apiKey = process.env.API_KEY || config.get('privateKey');
-const apiUrl = `${config.get('baseUrl')}?pretty=true`;
+const region = process.env.REGION || 'usnorth';
+const apiUrl = config.get('baseUrl');
 const tag = config.get('tag');
 const xmlLink = config.get('xmlLink');
-const output = config.get('outputFile');
 
-generateCurlRequest(xmlLink, output, {
+const option = {
 
-    regions: ['usnorth'],
-    comment: tag,
-    alive: 6//7
+    auth: {
+
+        user: user,
+        pass: apiKey,
+        sendImmediately: false
+    },
+    headers: {
+
+        'Accept': 'application/json',
+        'Content-Type': 'application/json'
+    }
+};
+
+populateIps(xmlLink, {
+
+    regions: [region],
+    comment: `${tag} for ${region}`,
+    alive: 0
 });
 
-async function generateCurlRequest(url, output, option) {
+async function populateIps(url, whitelistOption) {
 
-    try {
+    const { regions, comment, alive } = whitelistOption;
+    const ips = await getIpListByRegions(url, regions);
+    const body = JSON.stringify(getWhitelists(ips, comment, alive));
+    const requestOption = Object.assign({ body }, option);
 
-        const { regions, comment, alive } = option;
-        const ips = await getIpListByRegion(url, regions);
-        const whitelist = getWhiteLists(ips, comment, alive);
+    request.post(apiUrl, requestOption, error => {
 
-        fs.writeFile(output, buildRequest(whitelist), error => {
+        if (!error) {
 
-            if (!error) {
-
-                console.log(`saved request to file ${output}`);
-            }
-        });
-    }
-    catch (error) {
-
-        console.log('failed to generate curl request.');
-    }
+            console.log(`added ${ips.length} IPs to whitelist.`);
+        }
+    });
 }
 
-function buildRequest(whitelist) {
+function getWhitelists(ips, comment, alive = 0) {
 
-    const request =
-    `
-        curl --user "${user}:${apiKey}" --digest --include \\
-             --header "Accept: application/json" \\
-             --header "Content-Type: application/json" \\
-             --request POST ${apiUrl} \\
-             --data '${JSON.stringify(whitelist)}'
-    `;
+    if (!alive) {
 
-    return request.trim();
-}
-
-function getWhiteLists(ips, comment, alive) {
+        alive = getRemainingDaysInWeek();
+    }
 
     return ips.map(ip => ({
 
@@ -63,6 +62,13 @@ function getWhiteLists(ips, comment, alive) {
     }));
 }
 
+function getRemainingDaysInWeek() {
+
+    const today = new Date().getDay();
+
+    return today ? 7 - today : 0;
+}
+
 function getDateFromNow(days = 7) {
 
     const now = new Date();
@@ -70,7 +76,7 @@ function getDateFromNow(days = 7) {
     return new Date(now.setDate(now.getDate() + days));
 }
 
-async function getIpListByRegion(url, regions) {
+async function getIpListByRegions(url, regions) {
 
     try {
 
