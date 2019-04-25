@@ -7,7 +7,7 @@ const apiKey = process.env.API_KEY || config.get('privateKey');
 const region = process.env.REGION || 'usnorth';
 const apiUrl = config.get('baseUrl');
 const tag = config.get('tag');
-const xmlLink = config.get('xmlLink');
+const downloadPage = config.get('downloadPage');
 
 const option = {
 
@@ -24,7 +24,7 @@ const option = {
     }
 };
 
-populateIps(xmlLink, {
+populateIps(downloadPage, {
 
     regions: [region],
     comment: `${tag} for ${region}`,
@@ -34,7 +34,8 @@ populateIps(xmlLink, {
 async function populateIps(url, whitelistOption) {
 
     const { regions, comment, alive } = whitelistOption;
-    const ips = await getIpListByRegions(url, regions);
+    const resolvedLink = await resolveXmlLink(url);
+    const ips = await getIpListByRegions(resolvedLink, regions);
     const body = JSON.stringify(getWhitelists(ips, comment, alive));
     const requestOption = Object.assign({ body }, option);
 
@@ -45,6 +46,19 @@ async function populateIps(url, whitelistOption) {
             console.log(`added ${ips.length} IPs to whitelist.`);
         }
     });
+}
+
+async function resolveXmlLink(url) {
+
+    const content = await fetchFromUrl(url);
+    const urls = content.match(/(?<=href=").+PublicIPs.+\.xml/g);
+
+    if (!urls) {
+
+        return '';
+    }
+
+    return urls[0];
 }
 
 function getWhitelists(ips, comment, alive = 0) {
@@ -95,16 +109,21 @@ async function getIpListByRegions(url, regions) {
     }
 }
 
-async function fetchXml(url) {
+async function fetchFromUrl(url) {
 
     return await new Promise(resolve => {
 
         request.get(url, (error, response, body) => {
 
             const hasResult = !error && response.statusCode === 200;
-            resolve(hasResult ? parseXml(body) : '');
+            resolve(hasResult ? body : '');
         });
     });
+}
+
+async function fetchXml(url) {
+
+    return parseXml(await fetchFromUrl(url));
 }
 
 async function parseXml(xml) {
